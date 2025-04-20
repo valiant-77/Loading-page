@@ -131,37 +131,37 @@
         
         // Function to check if the main app is ready
         function checkAppStatus() {
-    const targetUrl = getTargetUrl();
-    const maxAttempts = 15; // Maximum number of attempts (30 seconds total)
-    let attempts = 0;
-    
-    function attempt() {
-        attempts++;
-        fetch(targetUrl, { 
-            method: 'HEAD',
-            mode: 'no-cors' // This prevents CORS errors but means we can't check response.ok
-        })
-        .then(() => {
-            // If we get here, we received a response (though we can't check status with no-cors)
-            // After a few successful pings, redirect anyway
-            if (attempts >= 3) {
+        const targetUrl = getTargetUrl();
+        let attempts = 0;
+        
+        // Force redirect after maximum wait time
+        const maxWaitTimeout = setTimeout(() => {
+            window.location.href = targetUrl;
+        }, 12000); // 12 seconds maximum wait
+        
+        function attempt() {
+            attempts++;
+            fetch(targetUrl, { 
+                method: 'HEAD',
+                mode: 'no-cors'
+            })
+            .then(() => {
+                // Redirect immediately after first successful ping
+                clearTimeout(maxWaitTimeout);
                 window.location.href = targetUrl;
-            } else {
-                setTimeout(attempt, 2000);
-            }
-        })
-        .catch(() => {
-            if (attempts >= maxAttempts) {
-                // Force redirect after max attempts
-                window.location.href = targetUrl;
-            } else {
-                setTimeout(attempt, 2000);
-            }
-        });
+            })
+            .catch(() => {
+                if (attempts < 10) { // Try up to 10 times
+                    setTimeout(attempt, 1000); // Check every 1 second
+                } else {
+                    clearTimeout(maxWaitTimeout);
+                    window.location.href = targetUrl;
+                }
+            });
+        }
+        
+        attempt();
     }
-    
-    attempt();
-}
 
         // Initialize everything
         displayRandomFact();
