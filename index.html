@@ -101,7 +101,7 @@
             "webwatcher": "https://web-watcher.onrender.com",
             "summerease":"https://summerease.onrender.com ",
             // Add more projects as needed
-            "default": "https://your-main-site.onrender.com" // Default if no project is specified
+            "default": "https://portfolio-page-pt2p.onrender.com" // Default if no project is specified
         };
         
         // Function to get URL parameters
@@ -131,20 +131,37 @@
         
         // Function to check if the main app is ready
         function checkAppStatus() {
-            const targetUrl = getTargetUrl();
-            
-            fetch(targetUrl, { method: 'HEAD' })
-                .then(response => {
-                    if (response.ok) {
-                        window.location.href = targetUrl;
-                    } else {
-                        setTimeout(checkAppStatus, 2000); // Try again in 2 seconds
-                    }
-                })
-                .catch(() => {
-                    setTimeout(checkAppStatus, 2000); // Try again in 2 seconds if error
-                });
-        }
+    const targetUrl = getTargetUrl();
+    const maxAttempts = 15; // Maximum number of attempts (30 seconds total)
+    let attempts = 0;
+    
+    function attempt() {
+        attempts++;
+        fetch(targetUrl, { 
+            method: 'HEAD',
+            mode: 'no-cors' // This prevents CORS errors but means we can't check response.ok
+        })
+        .then(() => {
+            // If we get here, we received a response (though we can't check status with no-cors)
+            // After a few successful pings, redirect anyway
+            if (attempts >= 3) {
+                window.location.href = targetUrl;
+            } else {
+                setTimeout(attempt, 2000);
+            }
+        })
+        .catch(() => {
+            if (attempts >= maxAttempts) {
+                // Force redirect after max attempts
+                window.location.href = targetUrl;
+            } else {
+                setTimeout(attempt, 2000);
+            }
+        });
+    }
+    
+    attempt();
+}
 
         // Initialize everything
         displayRandomFact();
