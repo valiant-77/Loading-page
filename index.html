@@ -95,14 +95,14 @@
         ];
         
         // Project mappings - Add all your Render projects here
-        const projectUrls = {
+       /* const projectUrls = {
             "portfolio": "https://portfolio-page-pt2p.onrender.com",
             "habittracker": "https://habit-tracker-s4no.onrender.com",
             "webwatcher": "https://web-watcher.onrender.com",
             "summerease":"https://summerease.onrender.com ",
             // Add more projects as needed
             "default": "https://portfolio-page-pt2p.onrender.com" // Default if no project is specified
-        };
+        };*/
         
         // Function to get URL parameters
         function getProjectFromUrl() {
@@ -129,39 +129,113 @@
             return projectUrls[project] || projectUrls["default"];
         }
         
-        // Function to check if the main app is ready
+        // Function to check if the main app is ready - IMPROVED VERSION
         function checkAppStatus() {
-        const targetUrl = getTargetUrl();
-        let attempts = 0;
-        
-        // Force redirect after maximum wait time
-        const maxWaitTimeout = setTimeout(() => {
-            window.location.href = targetUrl;
-        }, 12000); // 12 seconds maximum wait
-        
-        function attempt() {
-            attempts++;
-            fetch(targetUrl, { 
-                method: 'HEAD',
-                mode: 'no-cors'
-            })
-            .then(() => {
-                // Redirect immediately after first successful ping
-                clearTimeout(maxWaitTimeout);
+            const targetUrl = getTargetUrl();
+            let attempts = 0;
+            const maxAttempts = 15; // Increased from 10
+            const checkInterval = 2000; // Increased from 1000 (check every 2 seconds)
+            
+            // Force redirect after maximum wait time - increased from 12s to 40s
+            const maxWaitTimeout = setTimeout(() => {
                 window.location.href = targetUrl;
-            })
-            .catch(() => {
-                if (attempts < 10) { // Try up to 10 times
-                    setTimeout(attempt, 1000); // Check every 1 second
-                } else {
+            }, 40000);
+            
+            // Add timestamp to bypass cache
+            function getUrlWithTimestamp(url) {
+                const timestamp = new Date().getTime();
+                const separator = url.includes('?') ? '&' : '?';
+                return `${url}${separator}_t=${timestamp}`;
+            }
+            
+            // Check app status with retries
+            function attempt() {
+                attempts++;
+                const urlToCheck = getUrlWithTimestamp(targetUrl);
+                
+                // Try with image loading - more reliable than fetch for detecting if app is truly ready
+                const testImg = new Image();
+                let testCompleted = false;
+                
+                // Set timeout for this particular attempt
+                const attemptTimeout = setTimeout(() => {
+                    if (!testCompleted) {
+                        testCompleted = true;
+                        continueChecking();
+                    }
+                }, checkInterval - 200);
+                
+                // Success handler
+                testImg.onload = function() {
+                    if (!testCompleted) {
+                        testCompleted = true;
+                        clearTimeout(attemptTimeout);
+                        appReady();
+                    }
+                };
+                
+                // Error handler
+                testImg.onerror = function() {
+                    if (!testCompleted) {
+                        testCompleted = true;
+                        clearTimeout(attemptTimeout);
+                        continueChecking();
+                    }
+                };
+                
+                // Start the image test
+                testImg.src = urlToCheck + '/favicon.ico?' + new Date().getTime();
+                
+                // Also try a fetch as backup
+                fetch(urlToCheck, { 
+                    method: 'HEAD',
+                    cache: 'no-store',
+                    mode: 'no-cors'
+                })
+                .then(response => {
+                    if (!testCompleted) {
+                        testCompleted = true;
+                        clearTimeout(attemptTimeout);
+                        
+                        // Double check with a small delay
+                        setTimeout(() => {
+                            fetch(urlToCheck, { 
+                                method: 'HEAD',
+                                cache: 'no-store',
+                                mode: 'no-cors'
+                            })
+                            .then(() => appReady())
+                            .catch(() => continueChecking());
+                        }, 500);
+                    }
+                })
+                .catch(() => {
+                    if (!testCompleted) {
+                        testCompleted = true;
+                        clearTimeout(attemptTimeout);
+                        continueChecking();
+                    }
+                });
+                
+                function appReady() {
                     clearTimeout(maxWaitTimeout);
                     window.location.href = targetUrl;
                 }
-            });
+                
+                function continueChecking() {
+                    if (attempts < maxAttempts) {
+                        setTimeout(attempt, checkInterval);
+                    } else {
+                        // Max attempts reached, redirect anyway
+                        clearTimeout(maxWaitTimeout);
+                        window.location.href = targetUrl;
+                    }
+                }
+            }
+            
+            // Start checking
+            attempt();
         }
-        
-        attempt();
-    }
 
         // Initialize everything
         displayRandomFact();
